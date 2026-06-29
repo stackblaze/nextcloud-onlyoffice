@@ -15,7 +15,14 @@ set -u
 OCC="php /var/www/html/occ"
 
 configure() {
-  [ -n "${DOCUMENT_SERVER_URL:-}" ] || { echo "[onlyoffice-hook] DOCUMENT_SERVER_URL not set — skipping"; return 0; }
+  # Behind kubero's TLS-terminating ingress, Nextcloud sees plain HTTP and would
+  # otherwise hand the Document Server an http:// download URL that the proxy
+  # rejects ("Download failed"). Force https in generated URLs.
+  $OCC config:system:set overwriteprotocol --value https
+  [ -n "${NEXTCLOUD_PUBLIC_URL:-}" ] && \
+    $OCC config:system:set overwrite.cli.url --value "${NEXTCLOUD_PUBLIC_URL}"
+
+  [ -n "${DOCUMENT_SERVER_URL:-}" ] || { echo "[onlyoffice-hook] DOCUMENT_SERVER_URL not set — skipping connector"; return 0; }
   echo "[onlyoffice-hook] enabling + configuring ONLYOFFICE connector -> ${DOCUMENT_SERVER_URL}"
   $OCC app:enable onlyoffice 2>/dev/null || $OCC app:install onlyoffice
   $OCC config:app:set onlyoffice DocumentServerUrl --value "${DOCUMENT_SERVER_URL}"
